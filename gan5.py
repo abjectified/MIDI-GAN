@@ -83,18 +83,3 @@ data = np.stack(data)
 print(f"collected {len(data)} samples from {len(id_list)} songs")
 print(f"data shape : {data.shape}")
 
-tracks = []
-for idx, (program, is_drum, track_name) in enumerate(zip(programs, is_drums, track_names)):
-	pianoroll = np.pad(
-		np.concatenate(data[:4], 1)[idx], ((0, 0), (lowest_pitch, 128 - lowest_pitch - n_pitches)))
-	tracks.append(Track(name=track_name, program=program, is_drum=is_drum, pianoroll=pianoroll))
-multitrack = Multitrack(tracks=tracks, tempo=tempo_array, resolution=beat_resolution)
-axs = multitrack.plot()
-plt.gcf().set_size_inches((16, 8))
-for ax in axs:
-	for x in range(measure_resolution, 4 * 4 * measure_resolution, measure_resolution):
-		if x % (measure_resolution * 4) == 0:
-			ax.axvline(x - 0.5, color='k')
-		else:
-			ax.axvline(x - 0.5, color='k', linestyle='-', linewidth=1)
-plt.show()
