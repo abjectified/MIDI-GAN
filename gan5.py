@@ -83,3 +83,78 @@ data = np.stack(data)
 print(f"collected {len(data)} samples from {len(id_list)} songs")
 print(f"data shape : {data.shape}")
 
+train_datset = tf.data.Dataset.from_tensor_slices(data, tf.float32)
+
+#create generator and discriminator
+
+class generator_block(tf.keras.layers.Layer):
+	def __init__(self, filter_dim, kernel, stride):
+		super().__init__()
+		self.transconv = tf.keras.layers.Conv3DTranspose(filter_dim, kernel, stride)
+		self.batchnorm = tf.keras.layers.BatchNormalization()
+
+	def forward(self, x):
+		x = self.transconv(x)
+		x = self.batchnorm(x)
+		return tf.keras.layers.ReLU(x)
+
+class generator(tf.keras.Layers.Layer):
+	def __init__(self):
+		super().__init__()
+		self.transconv0 = generator_block(256, (4, 1, 1), (4, 1, 1))
+		self.transconv1 = generator_block(128, (1, 4, 1), (1, 4, 1))
+		self.transconv2 = generator_block(64, (1, 1, 4), (1, 1, 4))
+		self.transconv3 = generator_block(32, (1, 1, 3), (1, 1, 1))
+		self.transconv4 = generator_block(16, (1, 4, 1), (1, 4, 1))
+		self.transconv5 = generator_block(1, (1, 1, 12), (1, 1, 12))
+
+	def forward(self, x):
+		x = x.reshape(x, (-1, latent_dim, 1, 1, 1))
+		x = self.transconv0(x)
+		x = self.transconv1(x)
+		x = self.transconv2(x)
+		x = self.transconv3(x)
+		x = self.transconv4(x)
+		x = self.transconv5(x)
+		x = x.reshape(x, (-1, n_tracks, n_measures * measure_resolution, n_pitches))
+		return x
+
+class discriminator_block(tf.keras.Layers.Layer):
+	def __init__(self, filter_dim, kernel, stride):
+		super().__init__()
+		self.transconv = tf.keras.layers.Conv3D(filter_dim, kernel, stride)
+		self.layernorm = tf.keras.Layers.LayerNormalization()
+
+	def forward(self, x):
+		x = self.transconv(x)
+		x = self.layernorm(x)
+		return tf.keras.layers.LeakyReLU(x)
+
+class discriminator(tf.keras.Layers.Layer):
+	def __init__(self):
+		super().__init__()
+		self.conv0 = discriminator_block(16, (1, 1, 12), (1, 1, 12))
+		self.conv1 = discriminator_block(16, (1, 4, 1), (1, 4, 1))
+		self.conv2 = discriminator_block(64, (1, 1, 3), (1, 1, 1))
+		self.conv3 = discriminator_block(64, (1, 1, 4), (1, 1, 4))
+		self.conv4 = discriminator_block(128, (1, 4, 1), (1, 4, 1))
+		self.conv5 = discriminator_block(128, (2, 1, 1), (1, 1, 1))
+		self.conv6 = discriminator_block(256, (3, 1, 1), (3, 1, 1))
+		self.flatten = tf.keras.layers.Flatten()
+		self.dense = tf.keras.layers.Dense(1)
+
+	def forward(self, x):
+		x = x.reshape(x, (-1, n_tracks, n_measures, measure_resolution, n_pitches))
+		x = self.conv0(x)
+		x = self.conv1(x)
+		x = self.conv2(x)
+		x = self.conv3(x)
+		x = self.conv4(x)
+		x = self.conv5(x)
+		x = self.conv6(x)
+		x = self.flatten(x)
+		x = self.dense(x)
+		return x 
+
+#create training functions
+
